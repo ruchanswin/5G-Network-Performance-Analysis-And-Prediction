@@ -87,8 +87,8 @@ for order in ARIMA_PARAM_GRID:
 
         # Forecast and evaluate on test set
         forecast = fitted.forecast(steps=TEST_SIZE, exog=test_data[exog_cols])
-        y_true = test_data['total_throughput'].values
-        y_pred = forecast.values
+        y_true = np.asarray(test_data['total_throughput'].to_numpy(), dtype=float)
+        y_pred = np.asarray(forecast.to_numpy(), dtype=float)
 
         mse = mean_squared_error(y_true, y_pred)
         rmse = np.sqrt(mse)
@@ -142,8 +142,8 @@ print("\nGenerating forecast for test set...")
 forecast = fitted_model.forecast(steps=TEST_SIZE, exog=test_data[exog_cols])
 
 # === Evaluation ===
-y_true = test_data['total_throughput'].values
-y_pred = forecast.values
+y_true = np.asarray(test_data['total_throughput'].values, dtype=float)
+y_pred = np.asarray(forecast.values, dtype=float)
 
 mse = mean_squared_error(y_true, y_pred)
 rmse = np.sqrt(mse)

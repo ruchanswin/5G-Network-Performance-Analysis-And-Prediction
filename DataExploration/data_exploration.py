@@ -89,7 +89,7 @@ for server in servers:
         y=df['longitude'],
         s=0.25,
         c=df[server],
-        cmap=cm.plasma,
+        cmap="plasma",
         alpha=0.5,
         vmin=df[server].min(),
         vmax=df[server].max()
@@ -98,7 +98,7 @@ for server in servers:
     plt.xlabel('Latitude')
     plt.ylabel('Longitude')
     plt.title(f'Latency Scatter Plot for {server}')
-    plt.axis([lat_limits[0], lat_limits[1], lon_limits[0], lon_limits[1]])
+    plt.axis((lat_limits[0], lat_limits[1], lon_limits[0], lon_limits[1]))
     plt.savefig(f'./Results/{server}_lat_lon.png', dpi=300, bbox_inches='tight')
     plt.close()
 
@@ -113,13 +113,13 @@ im = plt.scatter(
     vmax=np.max(avg_latency),
     c=avg_latency,
     alpha=0.5,
-    cmap=cm.plasma
+    cmap="plasma"
 )
 plt.colorbar(im)
 plt.xlabel('Latitude')
 plt.ylabel('Longitude')
 plt.title('Average Latency (sec)')
-plt.axis([-37.800, -37.700, 144.750, 144.850])
+plt.axis((-37.800, -37.700, 144.750, 144.850))
 plt.savefig('./Results/lat_lon.png', dpi=300, bbox_inches='tight')
 # plt.show()
 
@@ -144,7 +144,7 @@ for index, feature in enumerate(features):
         vmax=np.max(column),
         c=column,
         alpha=0.5,
-        cmap=cm.plasma
+        cmap="plasma"
     )
     axis.set_title(title)
     axis.set_xlim(-37.775, -37.725)
@@ -173,7 +173,7 @@ for axis, feature in zip(axs, features):
     column = column[np.abs(stats.zscore(column)) < 3]
 
     sns.histplot(
-        column,
+        x=column,
         color=color,
         kde=True,
         stat='density',

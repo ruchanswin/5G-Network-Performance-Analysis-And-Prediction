@@ -34,7 +34,8 @@ class ZoneForecastSystem:
     def find_performance_label(self, lat, lon):
         df = self.zone_map.copy()
         df['distance'] = ((df['latitude'] - lat) ** 2 + (df['longitude'] - lon) ** 2) ** 0.5
-        nearest = df.loc[df['distance'].idxmin()]
+        nearest_idx = int(df['distance'].argmin())
+        nearest = df.iloc[nearest_idx]
         return nearest['performance_label'], nearest['latitude'], nearest['longitude']
 
     def forecast_throughput(self, start_time, end_time):
@@ -43,11 +44,11 @@ class ZoneForecastSystem:
         if start_time < self.last_train_time:
             raise ValueError(f"Start time must be after training time: {self.last_train_time}")
 
-        future_index = pd.date_range(start=start_time, end=end_time, freq='h')
+        future_index = pd.DatetimeIndex(pd.date_range(start=start_time, end=end_time, freq='h'))
         exog = pd.DataFrame(index=future_index)
-        exog['hour'] = exog.index.hour
-        exog['day_of_week'] = exog.index.dayofweek
-        exog['minute'] = exog.index.minute
+        exog['hour'] = future_index.hour
+        exog['day_of_week'] = future_index.dayofweek
+        exog['minute'] = future_index.minute
         exog['hour_sin'] = np.sin(2 * np.pi * exog['hour'] / 24)
         exog['hour_cos'] = np.cos(2 * np.pi * exog['hour'] / 24)
         exog['day_sin'] = np.sin(2 * np.pi * exog['day_of_week'] / 7)
@@ -74,7 +75,9 @@ class ZoneForecastSystem:
         scaled = self.scaler.transform(df[features])
         clusters = self.kmeans.predict(scaled)
         df['cluster'] = clusters
-        df['performance_label'] = [self.label_zone(c) for c in clusters]
+        df['performance_label'] = pd.Series(clusters, index=df.index).map(
+            self.cluster_summary['performance_label']
+        )
 
         fig, ax = plt.subplots(figsize=(8, 6))
         colors = {'Low Performance': 'red', 'Moderate': 'orange', 'High Performance': 'green'}
