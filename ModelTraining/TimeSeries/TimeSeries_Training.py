@@ -1,11 +1,19 @@
+import os
+import sys
+
 import pandas as pd
 import numpy as np
 from statsmodels.tsa.arima.model import ARIMA
 from itertools import product
 import joblib
-import os
 import warnings
 from sklearn.metrics import mean_squared_error, mean_absolute_error
+
+# Make the repo root importable so the shared feature module is found
+# regardless of the directory the script is started from.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from features import TOTAL_THROUGHPUT
 
 
 # === Constants ===
@@ -16,7 +24,7 @@ VAL_SIZE = 24
 ARIMA_PARAM_GRID = list(product(range(3), repeat=3))  # Try (0–2) for p, d, q
 
 # === Feature Engineering Function ===
-def create_features(df, target_col='total_throughput'):
+def create_features(df, target_col=TOTAL_THROUGHPUT):
     df = df.copy()
     df['hour'] = df.index.hour
     df['day_of_week'] = df.index.dayofweek
@@ -53,7 +61,7 @@ df['Convert_time'] = pd.to_datetime(df['DATE'] + ' ' + df['TIME'])
 df.set_index('Convert_time', inplace=True)
 
 # === Resample and feature engineering ===
-hourly_data = df.resample('h').agg({'total_throughput': 'mean'}).bfill().ffill()
+hourly_data = df.resample('h').agg({TOTAL_THROUGHPUT: 'mean'}).bfill().ffill()
 data = create_features(hourly_data)
 
 # === Train/Val/Test split ===
@@ -81,13 +89,13 @@ fitted_model = None
 print("\nSearching best ARIMA(p,d,q) order and evaluating each model...")
 for order in ARIMA_PARAM_GRID:
     try:
-        model = ARIMA(train_data['total_throughput'], order=order, exog=train_data[exog_cols])
+        model = ARIMA(train_data[TOTAL_THROUGHPUT], order=order, exog=train_data[exog_cols])
         fitted = model.fit()
         aic = fitted.aic
 
         # Forecast and evaluate on test set
         forecast = fitted.forecast(steps=TEST_SIZE, exog=test_data[exog_cols])
-        y_true = np.asarray(test_data['total_throughput'].to_numpy(), dtype=float)
+        y_true = np.asarray(test_data[TOTAL_THROUGHPUT].to_numpy(), dtype=float)
         y_pred = np.asarray(forecast.to_numpy(), dtype=float)
 
         mse = mean_squared_error(y_true, y_pred)
@@ -129,7 +137,7 @@ last_train_timestamp = train_data.index.max()
 os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
 joblib.dump({
     'fitted_model': fitted_model,
-    'target_column': 'total_throughput',
+    'target_column': TOTAL_THROUGHPUT,
     'last_train_timestamp': last_train_timestamp,
     'best_order': best_order,
     'features': exog_cols
@@ -142,7 +150,7 @@ print("\nGenerating forecast for test set...")
 forecast = fitted_model.forecast(steps=TEST_SIZE, exog=test_data[exog_cols])
 
 # === Evaluation ===
-y_true = np.asarray(test_data['total_throughput'].values, dtype=float)
+y_true = np.asarray(test_data[TOTAL_THROUGHPUT].values, dtype=float)
 y_pred = np.asarray(forecast.values, dtype=float)
 
 mse = mean_squared_error(y_true, y_pred)

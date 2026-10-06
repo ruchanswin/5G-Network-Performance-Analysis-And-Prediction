@@ -7,6 +7,13 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from dateutil.parser import parse as parse_datetime
 import os
+import sys
+
+# Make the repo root importable so the shared feature module is found
+# regardless of the directory the script is started from.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from features import add_derived_features, missing_columns, CLUSTER_FEATURES, RAW_METRIC_COLUMNS
 
 class ZoneForecastSystem:
     def __init__(self, kmeans_path, scaler_path, cluster_csv_path, arima_model_path, zone_cluster_map_path):
@@ -60,24 +67,27 @@ class ZoneForecastSystem:
         forecast = self.fitted_arima.forecast(steps=len(future_index), exog=exog)
         return forecast, future_index
 
-    def predict_from_csv(self, file_path):
-        df = pd.read_csv(file_path)
-        required = ['latitude', 'longitude', 'upload_bitrate_mbits/sec', 'download_bitrate_rx_mbits/sec',
-                    'upload_transfer_size_mbytes', 'download_transfer_size_rx_mbytes', 'svr1', 'svr2', 'svr3', 'svr4']
-        for col in required:
-            if col not in df.columns:
-                raise ValueError(f"Missing: {col}")
+    def assign_zones(self, df):
+        """Derive model features via the shared module and label each row with its zone.
 
-        df['average_latency'] = df[['svr1', 'svr2', 'svr3', 'svr4']].mean(axis=1)
-        df['total_throughput'] = df['upload_transfer_size_mbytes'] + df['download_transfer_size_rx_mbytes']
-        df['total_bandwidth'] = df['upload_bitrate_mbits/sec'] + df['download_bitrate_rx_mbits/sec']
-        features = ['latitude', 'longitude', 'average_latency', 'total_throughput', 'total_bandwidth']
-        scaled = self.scaler.transform(df[features])
+        Kept free of Tk/matplotlib work so it can be exercised headlessly.
+        """
+        required = ['latitude', 'longitude'] + RAW_METRIC_COLUMNS
+        missing = missing_columns(df, required)
+        if missing:
+            raise ValueError(f"Missing: {missing[0]}")
+
+        add_derived_features(df, inplace=True)
+        scaled = self.scaler.transform(df[CLUSTER_FEATURES])
         clusters = self.kmeans.predict(scaled)
         df['cluster'] = clusters
         df['performance_label'] = pd.Series(clusters, index=df.index).map(
             self.cluster_summary['performance_label']
         )
+        return df
+
+    def predict_from_csv(self, file_path):
+        df = self.assign_zones(pd.read_csv(file_path))
 
         fig, ax = plt.subplots(figsize=(8, 6))
         colors = {'Low Performance': 'red', 'Moderate': 'orange', 'High Performance': 'green'}

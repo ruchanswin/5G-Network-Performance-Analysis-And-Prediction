@@ -1,16 +1,25 @@
+import os
+import sys
+
 import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bouldin_score
 import joblib
-import os
+
+# Make the repo root importable so the shared feature module is found
+# regardless of the directory the script is started from.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from features import CLUSTER_FEATURES
 
 # Load raw unscaled data
 df = pd.read_csv("./ProcessedData/clean_data_training.csv")
 
 # Select features
-feature_cols = ['latitude', 'longitude', 'average_latency', 'total_throughput', 'total_bandwidth']
+# Shared definition: must match what the GUI computes at inference time
+feature_cols = CLUSTER_FEATURES
 X_raw = df[feature_cols].copy()
 
 # Apply MinMaxScaler

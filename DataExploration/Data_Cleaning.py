@@ -1,5 +1,14 @@
+import os
+import sys
+
 import pandas as pd
 from os import listdir, path
+
+# Make the repo root importable so the shared feature module is found
+# regardless of the directory the script is started from.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from features import add_derived_features
 
 # Path to the directory containing the raw CSV files directly (no zip)
 RAW_DATA_PATH = './RawData/'
@@ -36,27 +45,28 @@ raw_data['SEC'] = raw_data['sec'].astype(int)
 
 raw_data = raw_data.drop(columns=['Year', 'Month', 'Date', 'hour', 'min', 'sec'])
 
-# Create new features
-raw_data['total_throughput'] = raw_data['Bitrate'] + raw_data['Bitrate-RX']
-raw_data['total_bandwidth'] = raw_data['Transfer size'] + raw_data['Transfer size-RX']
-raw_data['average_latency'] = raw_data[['svr1', 'svr2', 'svr3', 'svr4']].mean(axis=1)
+# Rename raw metric columns to the canonical names, then derive the model
+# features through the shared module (single source of truth).
+raw_data = raw_data.rename(columns={
+    'Transfer size': 'upload_transfer_size_mbytes',
+    'Transfer size-RX': 'download_transfer_size_rx_mbytes',
+    'Bitrate': 'upload_bitrate_mbits/sec',
+    'Bitrate-RX': 'download_bitrate_rx_mbits/sec',
+})
+add_derived_features(raw_data, inplace=True)
 
 raw_data['DATE'] = pd.to_datetime(raw_data['YEAR'].astype(str) + '-' + raw_data['MONTH'].astype(str) + '-' + raw_data['DATE'].astype(str), format='%Y-%m-%d').dt.date
 raw_data['TIME'] = pd.to_datetime(raw_data['HOUR'].astype(str) + ':' + raw_data['MIN'].astype(str) + ':' + raw_data['SEC'].astype(str), format='%H:%M:%S').dt.time
 
 # Selecting clean features
 clean_features = ['DATE', 'TIME', 'Day', 'latitude', 'longitude', 'speed', 'svr1', 'svr2', 'svr3', 'svr4', 
-                  'average_latency', 'Transfer size', 'Transfer size-RX', 'total_bandwidth',
-                  'Bitrate', 'Bitrate-RX', 'total_throughput', 'send_data', 'square_id']
+                  'average_latency', 'upload_transfer_size_mbytes', 'download_transfer_size_rx_mbytes', 'total_bandwidth',
+                  'upload_bitrate_mbits/sec', 'download_bitrate_rx_mbits/sec', 'total_throughput', 'send_data', 'square_id']
 
 raw_data = raw_data[clean_features]
 
 # Renaming columns for clarity
 raw_data = raw_data.rename(columns={
-    'Transfer size': 'upload_transfer_size_mbytes',
-    'Transfer size-RX': 'download_transfer_size_rx_mbytes',
-    'Bitrate': 'upload_bitrate_mbits/sec',
-    'Bitrate-RX': 'download_bitrate_rx_mbits/sec',
     'send_data': 'application_data',
     'Day': 'DAY'
 })
